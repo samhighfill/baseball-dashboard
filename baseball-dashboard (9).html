@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Roster — Baseball Stats Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Barlow:wght@400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c0f;
+    --surface: #111418;
+    --surface2: #181c22;
+    --border: #252a32;
+    --border2: #2e3540;
+    --accent: #e8c84a;
+    --accent2: #f0a030;
+    --text: #e4e8ef;
+    --text2: #8a94a6;
+    --text3: #505a6a;
+    --green: #3ddc84;
+    --red: #ff5c5c;
+    --blue: #4a9eff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* HEADER */
+  header {
+    background: var(--surface);
+    border-bottom: 2px solid var(--accent);
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .logo span { color: var(--text2); font-weight: 500; }
+
+  .season-badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--text2);
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    padding: 4px 10px;
+    border-radius: 2px;
+  }
+
+  /* MAIN LAYOUT */
+  main { padding: 28px 32px; max-width: 1600px; margin: 0 auto; }
+
+  /* ADD PLAYER SECTION */
+  .add-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--accent);
+    padding: 20px 24px;
+    margin-bottom: 28px;
+  }
+
+  .add-section h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text2);
+    margin-bottom: 14px;
+  }
+
+  .search-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .search-input-wrap {
+    position: relative;
+    flex: 1;
+    max-width: 420px;
+  }
+
+  input[type="text"] {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 15px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input[type="text"]:focus { border-color: var(--accent); }
+  input[type="text"]::placeholder { color: var(--text3); }
+
+  .btn {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--accent2); }
+  .btn:disabled { background: var(--border2); color: var(--text3); cursor: not-allowed; }
+
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--text2);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* SEARCH RESULTS DROPDOWN */
+  .search-results {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0; right: 0;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    z-index: 200;
+    max-height: 320px;
+    overflow-y: auto;
+  }
+
+  .search-result-item {
+    padding: 10px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .search-result-item:last-child { border-bottom: none; }
+  .search-result-item:hover { background: var(--border); }
+
+  .result-name {
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .result-meta {
+    font-size: 12px;
+    color: var(--text2);
+    font-family: 'Share Tech Mono', monospace;
+    text-align: right;
+  }
+
+  .search-status {
+    padding: 12px 14px;
+    font-size: 13px;
+    color: var(--text2);
+    font-style: italic;
+  }
+
+  /* TABS */
+  .tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 20px;
+    border-bottom: 2px solid var(--border);
+  }
+
+  .tab {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 12px 28px;
+    cursor: pointer;
+    color: var(--text3);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.15s;
+  }
+  .tab:hover { color: var(--text2); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .tab-count {
+    display: inline-block;
+    background: var(--surface2);
+    font-size: 11px;
+    padding: 2px 6px;
+    margin-left: 6px;
+    border-radius: 2px;
+    font-weight: 600;
+  }
+  .tab.active .tab-count { background: rgba(232,200,74,0.15); color: var(--accent); }
+
+  /* TABLE */
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead tr {
+    background: var(--surface2);
+    border-bottom: 2px solid var(--border2);
+  }
+
+  th {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text2);
+    padding: 10px 10px;
+    text-align: center;
+    white-space: nowrap;
+    border-right: 1px solid var(--border);
+    cursor: default;
+  }
+  th:first-child { text-align: left; min-width: 180px; padding-left: 16px; }
+  th:last-child { border-right: none; }
+
+  th.sortable { cursor: pointer; user-select: none; }
+  th.sortable:hover { color: var(--accent); }
+  th.sorted { color: var(--accent); }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  tbody tr:hover { background: var(--surface2); }
+  tbody tr:last-child { border-bottom: none; }
+
+  td {
+    padding: 9px 10px;
+    text-align: center;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+    border-right: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  td:first-child {
+    text-align: left;
+    padding-left: 16px;
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  td:last-child { border-right: none; }
+
+  .player-name-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .player-main-name { font-weight: 600; font-size: 14px; }
+  .player-sub {
+    font-size: 11px;
+    color: var(--text2);
+    font-family: 'Barlow', sans-serif;
+    font-weight: 400;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .level-pill {
+    font-size: 10px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 1px 6px;
+    border-radius: 2px;
+    text-transform: uppercase;
+  }
+  .level-MLB { background: rgba(232,200,74,0.15); color: var(--accent); }
+  .level-AAA { background: rgba(74,158,255,0.15); color: var(--blue); }
+  .level-AA  { background: rgba(61,220,132,0.15); color: var(--green); }
+  .level-A\+  { background: rgba(240,160,48,0.15); color: var(--accent2); }
+  .level-A   { background: rgba(240,160,48,0.1); color: var(--accent2); }
+  .level-Rk  { background: rgba(138,148,166,0.15); color: var(--text2); }
+  .level-Combined { background: rgba(232,100,74,0.15); color: #e87050; }
+
+  .remove-btn {
+    background: none;
+    border: none;
+    color: var(--text3);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 2px 6px;
+    transition: color 0.15s;
+    vertical-align: middle;
+  }
+  .remove-btn:hover { color: var(--red); }
+
+  /* PLAYER OPTIONS ROW */
+  .player-options {
+    display: flex;
+    gap: 6px;
+    margin-top: 2px;
+  }
+
+  select.inline-select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 2px 4px;
+    cursor: pointer;
+    outline: none;
+  }
+  select.inline-select:focus { border-color: var(--accent); }
+
+  /* EMPTY STATE */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text3);
+  }
+  .empty-state .big { font-size: 48px; margin-bottom: 12px; }
+  .empty-state p {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /* ERROR / LOADING */
+  .cell-loading { color: var(--text3); font-style: italic; }
+  .cell-error { color: var(--red); }
+
+  /* REFRESH BAR */
+  .refresh-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+
+  .last-updated {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--text3);
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border: 2px solid var(--border2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .fade-in { animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  /* NOTIFICATION */
+  .notif {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-left: 3px solid var(--accent);
+    color: var(--text);
+    font-size: 13px;
+    padding: 12px 18px;
+    z-index: 999;
+    animation: slideIn 0.25s ease;
+    max-width: 320px;
+  }
+  @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">The Roster <span>/ Baseball Dashboard</span></div>
+  <div style="display:flex;gap:10px;align-items:center;"><button class="btn-ghost" onclick="clearRoster()" style="font-size:11px;padding:4px 12px;">Clear Roster</button><div class="season-badge" id="currentSeasonBadge">SEASON 2025</div></div>
+</header>
+
+<main>
+
+  <!-- ADD PLAYER -->
+  <div class="add-section">
+    <h2>Add Player to Roster</h2>
+    <div class="search-row">
+      <div class="search-input-wrap">
+        <input type="text" id="searchInput" placeholder="Search by player name..." autocomplete="off" />
+        <div class="search-results" id="searchResults" style="display:none;"></div>
+      </div>
+      <button class="btn" id="searchBtn" onclick="searchPlayers()">Search</button>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('pitchers')" id="tab-pitchers">
+      Pitchers <span class="tab-count" id="count-pitchers">0</span>
+    </div>
+    <div class="tab" onclick="switchTab('hitters')" id="tab-hitters">
+      Hitters <span class="tab-count" id="count-hitters">0</span>
+    </div>
+  </div>
+
+  <!-- REFRESH BAR -->
+  <div class="refresh-bar">
+    <span class="last-updated" id="lastUpdated">Not yet loaded</span>
+    <button class="btn-ghost" onclick="refreshAll()">↻ Refresh All Stats</button>
+  </div>
+
+  <!-- PITCHERS TABLE -->
+  <div id="panel-pitchers" class="table-wrap fade-in">
+    <table id="pitchers-table">
+      <thead>
+        <tr>
+          <th>Player</th>
+          <th class="sortable" onclick="sortTable('pitchers','w')">W</th>
+          <th class="sortable" onclick="sortTable('pitchers','l')">L</th>
+          <th class="sortable" onclick="sortTable('pitchers','g')">G</th>
+          <th class="sortable" onclick="sortTable('pitchers','gs')">GS</th>
+          <th class="sortable" onclick="sortTable('pitchers','era')">ERA</th>
+          <th class="sortable" onclick="sortTable('pitchers','ip')">IP</th>
+          <th class="sortable" onclick="sortTable('pitchers','h')">H</th>
+          <th class="sortable" onclick="sortTable('pitchers','r')">R</th>
+          <th class="sortable" onclick="sortTable('pitchers','er')">ER</th>
+          <th class="sortable" onclick="sortTable('pitchers','hr')">HR</th>
+          <th class="sortable" onclick="sortTable('pitchers','hbp')">HBP</th>
+          <th class="sortable" onclick="sortTable('pitchers','bb')">BB</th>
+          <th class="sortable" onclick="sortTable('pitchers','so')">SO</th>
+          <th class="sortable" onclick="sortTable('pitchers','avg')">BAA</th>
+          <th class="sortable" onclick="sortTable('pitchers','whip')">WHIP</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="pitchers-body">
+        <tr><td colspan="17"><div class="empty-state"><div class="big">⚾</div><p>No pitchers on your roster yet</p></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- HITTERS TABLE -->
+  <div id="panel-hitters" class="table-wrap fade-in" style="display:none;">
+    <table id="hitters-table">
+      <thead>
+        <tr>
+          <th>Player</th>
+          <th class="sortable" onclick="sortTable('hitters','g')">G</th>
+          <th class="sortable" onclick="sortTable('hitters','ab')">AB</th>
+          <th class="sortable" onclick="sortTable('hitters','r')">R</th>
+          <th class="sortable" onclick="sortTable('hitters','h')">H</th>
+          <th class="sortable" onclick="sortTable('hitters','d')">2B</th>
+          <th class="sortable" onclick="sortTable('hitters','t')">3B</th>
+          <th class="sortable" onclick="sortTable('hitters','hr')">HR</th>
+          <th class="sortable" onclick="sortTable('hitters','rbi')">RBI</th>
+          <th class="sortable" onclick="sortTable('hitters','bb')">BB</th>
+          <th class="sortable" onclick="sortTable('hitters','so')">SO</th>
+          <th class="sortable" onclick="sortTable('hitters','sb')">SB</th>
+          <th class="sortable" onclick="sortTable('hitters','cs')">CS</th>
+          <th class="sortable" onclick="sortTable('hitters','avg')">AVG</th>
+          <th class="sortable" onclick="sortTable('hitters','obp')">OBP</th>
+          <th class="sortable" onclick="sortTable('hitters','slg')">SLG</th>
+          <th class="sortable" onclick="sortTable('hitters','ops')">OPS</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="hitters-body">
+        <tr><td colspan="18"><div class="empty-state"><div class="big">⚾</div><p>No hitters on your roster yet</p></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+
+<script>
+// ─── STATE ────────────────────────────────────────────────────────────────────
+const STORAGE_KEY = 'roster_players_v2';
+const MLB_API = 'https://statsapi.mlb.com/api/v1';
+
+const SPORT_IDS = { 'Combined':0, 'MLB':1, 'AAA':11, 'AA':12, 'A+':13, 'A':14, 'Rk':16 };
+const SPORT_LABELS = { 0:'Combined', 1:'MLB', 11:'AAA', 12:'AA', 13:'A+', 14:'A', 16:'Rk' };
+
+let roster = loadRoster(); // [{id, name, type, sportId, teamName, season, displaySeason, displayLevel}]
+let statsCache = {}; // key: `${playerId}_${season}_${sportId}`
+let currentTab = 'pitchers';
+let sortState = { pitchers: { col: null, dir: 1 }, hitters: { col: null, dir: 1 } };
+
+const CURRENT_YEAR = new Date().getFullYear();
+const DEFAULT_SEASON = (new Date().getMonth() < 4) ? CURRENT_YEAR - 1 : CURRENT_YEAR; // Before May = use last season
+const SEASONS = Array.from({length: 10}, (_,i) => CURRENT_YEAR - i);
+
+// ─── STORAGE ──────────────────────────────────────────────────────────────────
+function clearRoster() {
+  if (!confirm('Remove all players from your roster?')) return;
+  roster = [];
+  statsCache = {};
+  saveRoster();
+  updateCounts();
+  renderTable('pitchers');
+  renderTable('hitters');
+  showNotif('Roster cleared');
+}
+
+function loadRoster() {
+  try {
+    const data = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    // Normalize types
+    return data.map(p => ({ ...p, id: Number(p.id), sportId: Number(p.sportId), season: Number(p.season) }));
+  } catch { return []; }
+}
+function saveRoster() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(roster));
+}
+
+// ─── TABS ─────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.getElementById('panel-pitchers').style.display = tab === 'pitchers' ? '' : 'none';
+  document.getElementById('panel-hitters').style.display = tab === 'hitters' ? '' : 'none';
+}
+
+// ─── SEARCH ───────────────────────────────────────────────────────────────────
+let searchTimeout;
+document.getElementById('searchInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') searchPlayers();
+});
+document.getElementById('searchInput').addEventListener('input', () => {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    const v = document.getElementById('searchInput').value.trim();
+    if (v.length >= 3) searchPlayers();
+  }, 500);
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-input-wrap')) closeSearch();
+});
+
+function closeSearch() {
+  document.getElementById('searchResults').style.display = 'none';
+}
+
+async function searchPlayers() {
+  const query = document.getElementById('searchInput').value.trim();
+  if (!query) return;
+
+  const resultsDiv = document.getElementById('searchResults');
+  resultsDiv.style.display = 'block';
+  resultsDiv.innerHTML = '<div class="search-status"><span class="spinner"></span>Searching...</div>';
+
+  try {
+    // Search MLB first, then minor leagues
+    const searches = await Promise.allSettled([
+      fetch(`${MLB_API}/people/search?names=${encodeURIComponent(query)}&sportIds=1,11,12,13,14,16&active=true`).then(r => r.json())
+    ]);
+
+    let players = [];
+    for (const s of searches) {
+      if (s.status === 'fulfilled' && s.value.people) {
+        players.push(...s.value.people);
+      }
+    }
+
+    // Deduplicate by id
+    const seen = new Set();
+    players = players.filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true; });
+
+    if (!players.length) {
+      resultsDiv.innerHTML = '<div class="search-status">No active players found. Try a different spelling.</div>';
+      return;
+    }
+
+    resultsDiv.innerHTML = players.slice(0, 20).map(p => {
+      const pos = p.primaryPosition?.abbreviation || '?';
+      const team = p.currentTeam?.name || 'Free Agent';
+      const sport = SPORT_LABELS[p.sport?.id] || p.sport?.name || '';
+      return `<div class="search-result-item" onclick="addPlayer(${p.id}, '${escHtml(p.fullName)}', '${pos}', ${p.sport?.id || 1}, '${escHtml(team)}')">
+        <div>
+          <div class="result-name">${escHtml(p.fullName)}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px;">${escHtml(team)}</div>
+        </div>
+        <div class="result-meta">
+          <div><span class="level-pill level-${sport}">${sport}</span></div>
+          <div style="margin-top:4px;">${pos}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+  } catch(err) {
+    resultsDiv.innerHTML = `<div class="search-status" style="color:var(--red)">Search failed. Check your connection.</div>`;
+  }
+}
+
+function escHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+async function addPlayer(id, name, pos, sportId, team) {
+  closeSearch();
+  document.getElementById('searchInput').value = '';
+
+  // Determine type from position
+  const pitcherPositions = ['P', 'SP', 'RP'];
+  const type = pitcherPositions.includes(pos) ? 'pitchers' : 'hitters';
+
+  // Check duplicate
+  if (roster.find(p => p.id === id)) {
+    showNotif(`${name} is already on your roster`);
+    return;
+  }
+
+  const player = { id, name, type, sportId, teamName: team, season: DEFAULT_SEASON, pos };
+  roster.push(player);
+  saveRoster();
+  updateCounts();
+
+  // Switch to their tab
+  switchTab(type);
+
+  // Fetch proper team name and stats in parallel
+  fetchPlayerTeam(player);
+  await fetchAndRenderStats(player);
+}
+
+function removePlayer(id) {
+  roster = roster.filter(p => p.id !== id);
+  delete statsCache[id];
+  saveRoster();
+  renderTable('pitchers');
+  renderTable('hitters');
+  updateCounts();
+}
+
+// ─── STATS FETCHING ───────────────────────────────────────────────────────────
+function combinedStats(allStats, type) {
+  // Sum counting stats, recalculate rate stats from totals
+  const sum = (key) => allStats.reduce((acc, s) => acc + (parseFloat(s[key]) || 0), 0);
+  const fmt3 = (n) => n.toFixed(3).replace(/^0/, '');
+  const fmt2 = (n) => n.toFixed(2);
+
+  if (type === 'hitters') {
+    const h   = sum('hits');
+    const ab  = sum('atBats');
+    const bb  = sum('baseOnBalls');
+    const hbp = sum('hitByPitch');
+    const sf  = sum('sacFlies');
+    const tb  = sum('totalBases');
+    const pa  = sum('plateAppearances') || (ab + bb + hbp + sf);
+    const avg = ab > 0 ? h / ab : 0;
+    const obp = pa > 0 ? (h + bb + hbp) / pa : 0;
+    const slg = ab > 0 ? tb / ab : 0;
+    return {
+      gamesPlayed:    sum('gamesPlayed'),
+      atBats:         ab,
+      runs:           sum('runs'),
+      hits:           h,
+      doubles:        sum('doubles'),
+      triples:        sum('triples'),
+      homeRuns:       sum('homeRuns'),
+      rbi:            sum('rbi'),
+      baseOnBalls:    bb,
+      strikeOuts:     sum('strikeOuts'),
+      stolenBases:    sum('stolenBases'),
+      caughtStealing: sum('caughtStealing'),
+      avg:            ab > 0 ? fmt3(avg) : '—',
+      obp:            pa > 0 ? fmt3(obp) : '—',
+      slg:            ab > 0 ? fmt3(slg) : '—',
+      ops:            pa > 0 ? fmt3(obp + slg) : '—',
+    };
+  } else {
+    const er = sum('earnedRuns');
+    const ip = sum('inningsPitched');
+    const h  = sum('hits');
+    const bb = sum('baseOnBalls');
+    // inningsPitched can be like 45.2 (45 full innings + 2 outs)
+    const ipDecimal = allStats.reduce((acc, s) => {
+      const raw = parseFloat(s.inningsPitched) || 0;
+      const full = Math.floor(raw);
+      const outs = Math.round((raw - full) * 10);
+      return acc + full + outs / 3;
+    }, 0);
+    const era  = ipDecimal > 0 ? (er * 9) / ipDecimal : 0;
+    const whip = ipDecimal > 0 ? (h + bb) / ipDecimal : 0;
+    // Format IP back to baseball notation (e.g. 45.2)
+    const ipFull = Math.floor(ipDecimal);
+    const ipOuts = Math.round((ipDecimal - ipFull) * 3);
+    return {
+      wins:           sum('wins'),
+      losses:         sum('losses'),
+      gamesPitched:   sum('gamesPitched'),
+      gamesStarted:   sum('gamesStarted'),
+      era:            ipDecimal > 0 ? fmt2(era) : '—',
+      inningsPitched: `${ipFull}.${ipOuts}`,
+      hits:           h,
+      runs:           sum('runs'),
+      earnedRuns:     er,
+      homeRuns:       sum('homeRuns'),
+      hitBatsmen:     sum('hitBatsmen'),
+      baseOnBalls:    bb,
+      strikeOuts:     sum('strikeOuts'),
+      avg:            '—',
+      whip:           ipDecimal > 0 ? fmt2(whip) : '—',
+    };
+  }
+}
+
+async function fetchPlayerTeam(player) {
+  try {
+    const res = await fetch(`${MLB_API}/people/${player.id}?hydrate=currentTeam`);
+    const data = await res.json();
+    const teamName = data.people?.[0]?.currentTeam?.name;
+    if (teamName) {
+      const p = roster.find(p => p.id === player.id);
+      if (p) {
+        p.teamName = teamName;
+        saveRoster();
+        renderTable(p.type);
+      }
+    }
+  } catch(e) { /* silently fail, team name is cosmetic */ }
+}
+
+async function fetchAndRenderStats(player) {
+  const cacheKey = `${player.id}_${player.season}_${player.sportId}`;
+
+  if (!statsCache[cacheKey]) {
+    statsCache[cacheKey] = { status: 'loading' };
+    renderTable(player.type);
+
+    try {
+      const group = player.type === 'pitchers' ? 'pitching' : 'hitting';
+
+      const allSportIds = [1, 11, 12, 13, 14, 16];
+      let stats = null;
+      let foundSportId = null;
+
+      if (player.sportId === 0) {
+        // COMBINED: fetch all levels and sum/average stats
+        const allStats = [];
+        await Promise.all(allSportIds.map(async sportId => {
+          try {
+            const url = `${MLB_API}/people/${player.id}/stats?stats=season&season=${player.season}&group=${group}&sportId=${sportId}`;
+            const res = await fetch(url);
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.stats && data.stats.length > 0) {
+              for (const statBlock of data.stats) {
+                if (statBlock.splits && statBlock.splits.length > 0 && statBlock.splits[0].stat) {
+                  allStats.push(statBlock.splits[0].stat);
+                }
+              }
+            }
+          } catch(e) {}
+        }));
+
+        if (allStats.length > 0) {
+          stats = combinedStats(allStats, player.type);
+          foundSportId = 0;
+          console.log(`[Stats] Combined stats for player ${player.id}:`, JSON.stringify(stats));
+        }
+      } else {
+        // SINGLE LEVEL: try selected first, then auto-detect
+        const orderedIds = [player.sportId, ...allSportIds.filter(id => id !== player.sportId)];
+        for (const sportId of orderedIds) {
+          try {
+            const url = `${MLB_API}/people/${player.id}/stats?stats=season&season=${player.season}&group=${group}&sportId=${sportId}`;
+            const res = await fetch(url);
+            if (!res.ok) continue;
+            const data = await res.json();
+            if (data.stats && data.stats.length > 0) {
+              for (const statBlock of data.stats) {
+                if (statBlock.splits && statBlock.splits.length > 0 && statBlock.splits[0].stat) {
+                  stats = statBlock.splits[0].stat;
+                  foundSportId = sportId;
+                  console.log(`[Stats] Found stats for player ${player.id} at sportId ${sportId}:`, JSON.stringify(stats));
+                  break;
+                }
+              }
+            }
+            if (stats) break;
+          } catch(e) {
+            console.warn(`[Stats] Failed sportId ${sportId}:`, e);
+          }
+        }
+
+        // If found at a different level, update the player record
+        if (stats && foundSportId && foundSportId !== player.sportId) {
+          const p = roster.find(p => p.id === player.id);
+          if (p) { p.sportId = foundSportId; saveRoster(); }
+        }
+      }
+
+      statsCache[cacheKey] = { status: 'ok', stats };
+      if (foundSportId && foundSportId !== player.sportId) {
+        statsCache[`${player.id}_${player.season}_${foundSportId}`] = { status: 'ok', stats };
+      }
+
+    } catch(e) {
+      console.error('[Stats] Error:', e);
+      statsCache[cacheKey] = { status: 'error' };
+    }
+  }
+
+  renderTable(player.type);
+  updateLastUpdated();
+}
+
+async function retryPlayer(id) {
+  const p = roster.find(p => p.id === id);
+  if (!p) return;
+  const cacheKey = `${p.id}_${p.season}_${p.sportId}`;
+  delete statsCache[cacheKey];
+  await fetchAndRenderStats(p);
+}
+
+async function refreshAll() {
+  statsCache = {};
+  const promises = roster.map(p => fetchAndRenderStats(p));
+  await Promise.all(promises);
+}
+
+// ─── RENDER TABLES ────────────────────────────────────────────────────────────
+function renderTable(type) {
+  const tbody = document.getElementById(type + '-body');
+  const players = roster.filter(p => p.type === type);
+
+  if (!players.length) {
+    const cols = type === 'pitchers' ? 17 : 18;
+    tbody.innerHTML = `<tr><td colspan="${cols}"><div class="empty-state"><div class="big">⚾</div><p>No ${type} on your roster yet</p></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = players.map(p => {
+    const cacheKey = `${p.id}_${p.season}_${p.sportId}`;
+    const cached = statsCache[cacheKey];
+    const sport = SPORT_LABELS[p.sportId] || 'MLB';
+    const levelClass = `level-${sport}`;
+
+    const nameCellHtml = `
+      <div class="player-name-cell">
+        <div class="player-main-name">${escHtml(p.name)}</div>
+        <div class="player-sub">
+          <span class="level-pill ${levelClass}">${sport}</span>
+          <span>${escHtml(p.teamName)}</span>
+          <span style="color:var(--text3)">·</span>
+          <span>${p.pos || ''}</span>
+        </div>
+        <div class="player-options">
+          <select class="inline-select" onchange="changePlayerSeason(${p.id}, this.value)">
+            ${SEASONS.map(y => `<option value="${y}" ${p.season==y?'selected':''}>${y}</option>`).join('')}
+          </select>
+          <select class="inline-select" onchange="changePlayerLevel(${p.id}, this.value)">
+            ${Object.entries(SPORT_IDS).map(([label, sid]) => `<option value="${sid}" ${p.sportId==sid?'selected':''}>${label}</option>`).join('')}
+          </select>
+        </div>
+      </div>`;
+
+    if (!cached || cached.status === 'loading') {
+      const cols = type === 'pitchers'
+        ? `<td class="cell-loading" colspan="15"><span class="spinner"></span> Loading...</td>`
+        : `<td class="cell-loading" colspan="16"><span class="spinner"></span> Loading...</td>`;
+      return `<tr class="fade-in"><td>${nameCellHtml}</td>${cols}<td><button class="remove-btn" onclick="removePlayer(${p.id})" title="Remove">✕</button></td></tr>`;
+    }
+
+    if (cached.status === 'error' || !cached.stats) {
+      const msg = !cached.stats ? `No ${p.season} stats at this level — try changing season or level` : 'Failed to load — check connection';
+      const cols = type === 'pitchers'
+        ? `<td class="cell-error" colspan="14" style="text-align:left;padding-left:12px;">${msg}</td><td><button class="btn-ghost" style="font-size:11px;padding:4px 10px;" onclick="retryPlayer(${p.id})">↻ Retry</button></td>`
+        : `<td class="cell-error" colspan="15" style="text-align:left;padding-left:12px;">${msg}</td><td><button class="btn-ghost" style="font-size:11px;padding:4px 10px;" onclick="retryPlayer(${p.id})">↻ Retry</button></td>`;
+      return `<tr class="fade-in"><td>${nameCellHtml}</td>${cols}<td><button class="remove-btn" onclick="removePlayer(${p.id})" title="Remove">✕</button></td></tr>`;
+    }
+
+    const s = cached.stats;
+
+    if (type === 'pitchers') {
+      return `<tr class="fade-in">
+        <td>${nameCellHtml}</td>
+        <td>${s.wins ?? '—'}</td>
+        <td>${s.losses ?? '—'}</td>
+        <td>${s.gamesPitched ?? '—'}</td>
+        <td>${s.gamesStarted ?? '—'}</td>
+        <td>${s.era ?? '—'}</td>
+        <td>${s.inningsPitched ?? '—'}</td>
+        <td>${s.hits ?? '—'}</td>
+        <td>${s.runs ?? '—'}</td>
+        <td>${s.earnedRuns ?? '—'}</td>
+        <td>${s.homeRuns ?? '—'}</td>
+        <td>${s.hitBatsmen ?? '—'}</td>
+        <td>${s.baseOnBalls ?? '—'}</td>
+        <td>${s.strikeOuts ?? '—'}</td>
+        <td>${s.avg ?? '—'}</td>
+        <td>${s.whip ?? '—'}</td>
+        <td><button class="remove-btn" onclick="removePlayer(${p.id})" title="Remove">✕</button></td>
+      </tr>`;
+    } else {
+      return `<tr class="fade-in">
+        <td>${nameCellHtml}</td>
+        <td>${s.gamesPlayed ?? '—'}</td>
+        <td>${s.atBats ?? '—'}</td>
+        <td>${s.runs ?? '—'}</td>
+        <td>${s.hits ?? '—'}</td>
+        <td>${s.doubles ?? '—'}</td>
+        <td>${s.triples ?? '—'}</td>
+        <td>${s.homeRuns ?? '—'}</td>
+        <td>${s.rbi ?? '—'}</td>
+        <td>${s.baseOnBalls ?? '—'}</td>
+        <td>${s.strikeOuts ?? '—'}</td>
+        <td>${s.stolenBases ?? '—'}</td>
+        <td>${s.caughtStealing ?? '—'}</td>
+        <td>${s.avg ?? '—'}</td>
+        <td>${s.obp ?? '—'}</td>
+        <td>${s.slg ?? '—'}</td>
+        <td>${s.ops ?? '—'}</td>
+        <td><button class="remove-btn" onclick="removePlayer(${p.id})" title="Remove">✕</button></td>
+      </tr>`;
+    }
+  }).join('');
+}
+
+// ─── SEASON / LEVEL CHANGE ────────────────────────────────────────────────────
+async function changePlayerSeason(id, season) {
+  const p = roster.find(p => p.id === id);
+  if (!p) return;
+  p.season = parseInt(season);
+  saveRoster();
+  await fetchAndRenderStats(p);
+}
+
+async function changePlayerLevel(id, sportId) {
+  const p = roster.find(p => p.id === id);
+  if (!p) return;
+  p.sportId = parseInt(sportId);
+  saveRoster();
+  await fetchAndRenderStats(p);
+}
+
+// ─── SORT ─────────────────────────────────────────────────────────────────────
+const PITCHER_STAT_MAP = {
+  w:'wins', l:'losses', g:'gamesPitched', gs:'gamesStarted', era:'era',
+  ip:'inningsPitched', h:'hits', r:'runs', er:'earnedRuns', hr:'homeRuns',
+  hbp:'hitBatsmen', bb:'baseOnBalls', so:'strikeOuts', avg:'avg', whip:'whip'
+};
+const HITTER_STAT_MAP = {
+  g:'gamesPlayed', ab:'atBats', r:'runs', h:'hits', d:'doubles', t:'triples',
+  hr:'homeRuns', rbi:'rbi', bb:'baseOnBalls', so:'strikeOuts', sb:'stolenBases',
+  cs:'caughtStealing', avg:'avg', obp:'obp', slg:'slg', ops:'ops'
+};
+
+function sortTable(type, col) {
+  const ss = sortState[type];
+  if (ss.col === col) ss.dir *= -1;
+  else { ss.col = col; ss.dir = 1; }
+
+  const statMap = type === 'pitchers' ? PITCHER_STAT_MAP : HITTER_STAT_MAP;
+  const statKey = statMap[col];
+
+  roster.filter(p => p.type === type).sort((a, b) => {
+    const ca = statsCache[`${a.id}_${a.season}_${a.sportId}`];
+    const cb = statsCache[`${b.id}_${b.season}_${b.sportId}`];
+    const va = parseFloat(ca?.stats?.[statKey]) || 0;
+    const vb = parseFloat(cb?.stats?.[statKey]) || 0;
+    return (va - vb) * ss.dir;
+  });
+
+  // Re-sort roster for this type
+  const others = roster.filter(p => p.type !== type);
+  const sorted = roster.filter(p => p.type === type).sort((a, b) => {
+    const ca = statsCache[`${a.id}_${a.season}_${a.sportId}`];
+    const cb = statsCache[`${b.id}_${b.season}_${b.sportId}`];
+    const va = parseFloat(ca?.stats?.[statKey]) || 0;
+    const vb = parseFloat(cb?.stats?.[statKey]) || 0;
+    return (va - vb) * ss.dir;
+  });
+  roster = [...others, ...sorted];
+  saveRoster();
+  renderTable(type);
+}
+
+// ─── UI HELPERS ───────────────────────────────────────────────────────────────
+function updateCounts() {
+  document.getElementById('count-pitchers').textContent = roster.filter(p => p.type === 'pitchers').length;
+  document.getElementById('count-hitters').textContent = roster.filter(p => p.type === 'hitters').length;
+}
+
+function updateLastUpdated() {
+  const now = new Date();
+  document.getElementById('lastUpdated').textContent =
+    `Last updated: ${now.toLocaleDateString()} ${now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`;
+}
+
+let notifTimeout;
+function showNotif(msg) {
+  const existing = document.querySelector('.notif');
+  if (existing) existing.remove();
+  const el = document.createElement('div');
+  el.className = 'notif';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  clearTimeout(notifTimeout);
+  notifTimeout = setTimeout(() => el.remove(), 3000);
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+async function init() {
+  document.getElementById('currentSeasonBadge').textContent = `SEASON ${DEFAULT_SEASON}`;
+
+  // Migrate any players saved with season=CURRENT_YEAR (2026) to DEFAULT_SEASON
+  let migrated = false;
+  roster.forEach(p => {
+    if (p.season === CURRENT_YEAR && CURRENT_YEAR !== DEFAULT_SEASON) {
+      p.season = DEFAULT_SEASON;
+      migrated = true;
+    }
+  });
+  if (migrated) saveRoster();
+
+  updateCounts();
+  renderTable('pitchers');
+  renderTable('hitters');
+
+  if (roster.length) {
+    showNotif(`Loading stats for ${roster.length} player${roster.length > 1 ? 's' : ''}...`);
+    await Promise.all(roster.map(p => fetchAndRenderStats(p)));
+  }
+}
+
+init();
+</script>
+
+</body>
+</html>
