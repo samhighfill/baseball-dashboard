@@ -415,6 +415,97 @@
   }
   @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: none; opacity: 1; } }
 
+  /* PLAYER LINK */
+  .player-link {
+    display: inline-block;
+    color: var(--text3);
+    text-decoration: none;
+    font-size: 11px;
+    margin-left: 6px;
+    vertical-align: middle;
+    transition: color 0.15s;
+  }
+  .player-link:hover { color: var(--accent); }
+
+  .expand-btn {
+    background: none;
+    border: none;
+    color: var(--text3);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0 4px;
+    vertical-align: middle;
+    transition: all 0.2s;
+    display: inline-block;
+    line-height: 1;
+  }
+  .expand-btn:hover { color: var(--accent); }
+  .expand-btn.open { transform: rotate(180deg); color: var(--accent); }
+
+  /* EXPANDED HISTORY ROW */
+  .history-row td {
+    padding: 0 !important;
+    border-bottom: 1px solid var(--border2) !important;
+  }
+  .history-panel {
+    background: var(--bg);
+    border-top: 1px solid var(--border2);
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.3s ease;
+  }
+  .history-panel.open { max-height: 600px; }
+  .history-inner {
+    padding: 12px 16px 16px;
+  }
+  .history-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 10px;
+  }
+  .history-table-wrap { overflow-x: auto; }
+  .history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .history-table th {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text3);
+    padding: 6px 8px;
+    text-align: center;
+    border-bottom: 1px solid var(--border2);
+    white-space: nowrap;
+  }
+  .history-table th:first-child { text-align: left; }
+  .history-table td {
+    padding: 6px 8px;
+    text-align: center;
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--text2);
+    border-bottom: 1px solid rgba(37,42,50,0.6);
+    border-right: none;
+    white-space: nowrap;
+  }
+  .history-table td:first-child { text-align: left; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 13px; color: var(--text); }
+  .history-table tr:last-child td { border-bottom: none; }
+  .history-table tr:hover td { background: var(--surface2); }
+  .history-loading { color: var(--text3); font-style: italic; font-size: 13px; padding: 12px 0; }
+
+  .player-name-clickable {
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+  .player-name-clickable:hover { color: var(--accent); }
+
   /* Scrollbar */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
@@ -855,6 +946,126 @@ async function fetchAndRenderStats(player) {
   updateLastUpdated();
 }
 
+
+// ─── SEASON HISTORY ───────────────────────────────────────────────────────────
+const historyCache = {};
+
+async function toggleHistory(playerId, type) {
+  const panel = document.getElementById(`history-panel-${playerId}`);
+  const btn = document.getElementById(`expand-btn-${playerId}`);
+  if (!panel) return;
+
+  const isOpen = panel.classList.contains('open');
+  if (isOpen) {
+    panel.classList.remove('open');
+    if (btn) btn.classList.remove('open');
+    return;
+  }
+
+  panel.classList.add('open');
+  if (btn) btn.classList.add('open');
+
+  // Only fetch if not already loaded
+  if (!historyCache[playerId]) {
+    await fetchHistory(playerId, type);
+  }
+}
+
+async function fetchHistory(playerId, type) {
+  const player = roster.find(p => p.id === playerId);
+  if (!player) return;
+
+  const group = type === 'pitchers' ? 'pitching' : 'hitting';
+  const allSportIds = [1, 11, 12, 13, 14, 16];
+
+  try {
+    // Fetch all seasons from all levels in parallel
+    const results = await Promise.all(
+      allSportIds.map(sid =>
+        fetch(`${MLB_API}/people/${playerId}/stats?stats=yearByYear&group=${group}&sportId=${sid}`)
+          .then(r => r.json())
+          .catch(() => null)
+      )
+    );
+
+    // Collect all season splits across all levels
+    const rows = [];
+    for (const data of results) {
+      if (!data || !data.stats || !data.stats.length) continue;
+      for (const statBlock of data.stats) {
+        if (!statBlock.splits) continue;
+        for (const split of statBlock.splits) {
+          if (!split.stat || !split.season) continue;
+          rows.push({
+            season: split.season,
+            team: split.team?.name || '—',
+            level: SPORT_LABELS[split.sport?.id] || '—',
+            stat: split.stat,
+          });
+        }
+      }
+    }
+
+    // Sort by season desc, then level
+    const levelOrder = { 'MLB':0, 'AAA':1, 'AA':2, 'A+':3, 'A':4, 'Rk':5 };
+    rows.sort((a, b) => {
+      if (b.season !== a.season) return b.season - a.season;
+      return (levelOrder[a.level] ?? 9) - (levelOrder[b.level] ?? 9);
+    });
+
+    historyCache[playerId] = rows;
+    renderHistory(playerId, type, rows);
+
+  } catch(e) {
+    console.error('fetchHistory error:', e);
+    const panel = document.getElementById(`history-panel-${playerId}`);
+    if (panel) panel.querySelector('.history-inner').innerHTML = '<div class="history-loading" style="color:var(--red)">Failed to load history</div>';
+  }
+}
+
+function renderHistory(playerId, type, rows) {
+  const panel = document.getElementById(`history-panel-${playerId}`);
+  if (!panel) return;
+
+  if (!rows.length) {
+    panel.querySelector('.history-inner').innerHTML = '<div class="history-loading">No historical stats found</div>';
+    return;
+  }
+
+  const isPitcher = type === 'pitchers';
+
+  const headers = isPitcher
+    ? ['Season','Team','Lvl','W','L','G','GS','ERA','IP','H','R','ER','HR','HBP','BB','SO','BAA','WHIP']
+    : ['Season','Team','Lvl','G','AB','R','H','2B','3B','HR','RBI','BB','SO','SB','CS','AVG','OBP','SLG','OPS'];
+
+  const rowsHtml = rows.map(r => {
+    const s = r.stat;
+    const levelClass = `level-${r.level}`;
+    const cells = isPitcher
+      ? [r.season, escHtml(r.team), `<span class="level-pill ${levelClass}">${r.level}</span>`,
+         s.wins??'—', s.losses??'—', s.gamesPitched??'—', s.gamesStarted??'—',
+         s.era??'—', s.inningsPitched??'—', s.hits??'—', s.runs??'—', s.earnedRuns??'—',
+         s.homeRuns??'—', s.hitBatsmen??'—', s.baseOnBalls??'—', s.strikeOuts??'—',
+         s.avg??'—', s.whip??'—']
+      : [r.season, escHtml(r.team), `<span class="level-pill ${levelClass}">${r.level}</span>`,
+         s.gamesPlayed??'—', s.atBats??'—', s.runs??'—', s.hits??'—',
+         s.doubles??'—', s.triples??'—', s.homeRuns??'—', s.rbi??'—',
+         s.baseOnBalls??'—', s.strikeOuts??'—', s.stolenBases??'—', s.caughtStealing??'—',
+         s.avg??'—', s.obp??'—', s.slg??'—', s.ops??'—'];
+
+    return `<tr>${cells.map((c,i) => `<td>${c}</td>`).join('')}</tr>`;
+  }).join('');
+
+  panel.querySelector('.history-inner').innerHTML = `
+    <div class="history-title">Season-by-Season</div>
+    <div class="history-table-wrap">
+      <table class="history-table">
+        <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>`;
+}
+
 async function retryPlayer(id) {
   const p = roster.find(p => p.id === id);
   if (!p) return;
@@ -886,9 +1097,16 @@ function renderTable(type) {
     const sport = SPORT_LABELS[p.sportId] || 'MLB';
     const levelClass = `level-${sport}`;
 
+    const profileUrl = p.sportId <= 1
+      ? `https://www.mlb.com/player/${p.id}`
+      : `https://www.milb.com/player/${p.id}`;
+
     const nameCellHtml = `
       <div class="player-name-cell">
-        <div class="player-main-name">${escHtml(p.name)}</div>
+        <div class="player-main-name">
+          <a class="player-link" href="${profileUrl}" target="_blank" title="View profile" style="font-size:14px;font-weight:600;color:var(--text);margin-left:0;font-family:'Barlow',sans-serif;">${escHtml(p.name)}</a>
+          <button class="expand-btn" id="expand-btn-${p.id}" onclick="toggleHistory(${p.id}, '${type}')" title="Season history">▾</button>
+        </div>
         <div class="player-sub">
           <span class="level-pill ${levelClass}">${sport}</span>
           <span>${escHtml(p.teamName)}</span>
@@ -941,6 +1159,9 @@ function renderTable(type) {
         <td>${s.avg ?? '—'}</td>
         <td>${s.whip ?? '—'}</td>
         <td><button class="remove-btn" onclick="removePlayer(${p.id})" title="Remove">✕</button></td>
+      </tr>
+      <tr class="history-row" id="history-row-${p.id}">
+        <td colspan="17"><div class="history-panel" id="history-panel-${p.id}"><div class="history-inner"><div class="history-loading">Loading career stats...</div></div></div></td>
       </tr>`;
     } else {
       return `<tr class="fade-in">
@@ -962,6 +1183,9 @@ function renderTable(type) {
         <td>${s.slg ?? '—'}</td>
         <td>${s.ops ?? '—'}</td>
         <td><button class="remove-btn" onclick="removePlayer(${p.id})" title="Remove">✕</button></td>
+      </tr>
+      <tr class="history-row" id="history-row-${p.id}">
+        <td colspan="18"><div class="history-panel" id="history-panel-${p.id}"><div class="history-inner"><div class="history-loading">Loading career stats...</div></div></div></td>
       </tr>`;
     }
   }).join('');
