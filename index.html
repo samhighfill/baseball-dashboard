@@ -517,7 +517,15 @@
 
 <header>
   <div class="logo">The Roster <span>/ Baseball Dashboard</span></div>
-  <div style="display:flex;gap:10px;align-items:center;"><button class="btn-ghost" onclick="clearRoster()" style="font-size:11px;padding:4px 12px;">Clear Roster</button><div class="season-badge" id="currentSeasonBadge">SEASON 2025</div></div>
+  <div style="display:flex;gap:10px;align-items:center;">
+    <button class="btn-ghost" onclick="clearRoster()" style="font-size:11px;padding:4px 12px;">Clear Roster</button>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text2);">All Players:</span>
+      <select id="globalSeasonSelect" class="inline-select" style="font-size:12px;padding:4px 8px;border-color:var(--border2);" onchange="changeAllSeasons(this.value)">
+      </select>
+    </div>
+    <div class="season-badge" id="currentSeasonBadge">SEASON 2026</div>
+  </div>
 </header>
 
 <main>
@@ -627,7 +635,7 @@ let currentTab = 'pitchers';
 let sortState = { pitchers: { col: null, dir: 1 }, hitters: { col: null, dir: 1 } };
 
 const CURRENT_YEAR = new Date().getFullYear();
-const DEFAULT_SEASON = (new Date().getMonth() < 4) ? CURRENT_YEAR - 1 : CURRENT_YEAR; // Before May = use last season
+const DEFAULT_SEASON = CURRENT_YEAR; // Season is underway
 const SEASONS = Array.from({length: 10}, (_,i) => CURRENT_YEAR - i);
 
 // ─── STORAGE ──────────────────────────────────────────────────────────────────
@@ -750,7 +758,7 @@ async function addPlayer(id, name, pos, sportId, team) {
     return;
   }
 
-  const player = { id, name, type, sportId, teamName: team, season: DEFAULT_SEASON, pos };
+  const player = { id, name, type, sportId: 0, teamName: team, season: DEFAULT_SEASON, pos };
   roster.push(player);
   saveRoster();
   updateCounts();
@@ -1275,18 +1283,36 @@ function showNotif(msg) {
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
+function changeAllSeasons(season) {
+  season = parseInt(season);
+  roster.forEach(p => { p.season = season; });
+  saveRoster();
+  // Clear cache for all players so fresh stats are fetched
+  statsCache = {};
+  Promise.all(roster.map(p => fetchAndRenderStats(p)));
+  document.getElementById('currentSeasonBadge').textContent = `SEASON ${season}`;
+}
+
 async function init() {
   document.getElementById('currentSeasonBadge').textContent = `SEASON ${DEFAULT_SEASON}`;
+  const globalSel = document.getElementById('globalSeasonSelect');
+  SEASONS.forEach(y => {
+    const opt = document.createElement('option');
+    opt.value = y;
+    opt.textContent = y;
+    if (y === DEFAULT_SEASON) opt.selected = true;
+    globalSel.appendChild(opt);
+  });
 
-  // Migrate any players saved with season=CURRENT_YEAR (2026) to DEFAULT_SEASON
+  // Migrate any players saved with last year's season to current year
   let migrated = false;
   roster.forEach(p => {
-    if (p.season === CURRENT_YEAR && CURRENT_YEAR !== DEFAULT_SEASON) {
+    if (p.season === DEFAULT_SEASON - 1) {
       p.season = DEFAULT_SEASON;
       migrated = true;
     }
   });
-  if (migrated) saveRoster();
+  if (migrated) { saveRoster(); showNotif('Updated all players to ' + DEFAULT_SEASON); }
 
   updateCounts();
   renderTable('pitchers');
