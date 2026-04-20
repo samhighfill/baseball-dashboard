@@ -506,6 +506,64 @@
   }
   .player-name-clickable:hover { color: var(--accent); }
 
+  /* DATE PICKER BAR */
+  .date-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--blue);
+    padding: 14px 24px;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .date-bar h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text2);
+    white-space: nowrap;
+  }
+  input[type="date"] {
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 14px;
+    padding: 8px 12px;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    color-scheme: dark;
+  }
+  input[type="date"]:focus { border-color: var(--blue); }
+  .date-active-badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--blue);
+    background: rgba(74,158,255,0.1);
+    border: 1px solid rgba(74,158,255,0.3);
+    padding: 3px 10px;
+    border-radius: 2px;
+  }
+  .btn-clear-date {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--text3);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 7px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-clear-date:hover { border-color: var(--red); color: var(--red); }
+
   /* Scrollbar */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
@@ -540,6 +598,15 @@
       </div>
       <button class="btn" id="searchBtn" onclick="searchPlayers()">Search</button>
     </div>
+  </div>
+
+  <!-- DATE BAR -->
+  <div class="date-bar">
+    <h2>Daily Stats</h2>
+    <input type="date" id="datePicker" onchange="onDateChange(this.value)" />
+    <button class="btn" onclick="setToday()" style="padding:8px 16px;">Today</button>
+    <span id="dateActiveBadge" style="display:none;" class="date-active-badge"></span>
+    <button class="btn-clear-date" id="clearDateBtn" style="display:none;" onclick="clearDate()">✕ Back to Season Stats</button>
   </div>
 
   <!-- TABS -->
@@ -629,7 +696,8 @@ const MLB_API = 'https://statsapi.mlb.com/api/v1';
 const SPORT_IDS = { 'Combined':0, 'MLB':1, 'AAA':11, 'AA':12, 'A+':13, 'A':14, 'Rk':16 };
 const SPORT_LABELS = { 0:'Combined', 1:'MLB', 11:'AAA', 12:'AA', 13:'A+', 14:'A', 16:'Rk' };
 
-let roster = loadRoster(); // [{id, name, type, sportId, teamName, season, displaySeason, displayLevel}]
+let roster = loadRoster();
+let activeDate = null; // null = season stats, 'YYYY-MM-DD' = single day // [{id, name, type, sportId, teamName, season, displaySeason, displayLevel}]
 let statsCache = {}; // key: `${playerId}_${season}_${sportId}`
 let currentTab = 'pitchers';
 let sortState = { pitchers: { col: null, dir: 1 }, hitters: { col: null, dir: 1 } };
@@ -870,7 +938,9 @@ async function fetchPlayerTeam(player) {
 }
 
 async function fetchAndRenderStats(player) {
-  const cacheKey = `${player.id}_${player.season}_${player.sportId}`;
+  const cacheKey = activeDate
+    ? `${player.id}_date_${activeDate}`
+    : `${player.id}_${player.season}_${player.sportId}`;
 
   if (!statsCache[cacheKey]) {
     statsCache[cacheKey] = { status: 'loading' };
@@ -883,7 +953,31 @@ async function fetchAndRenderStats(player) {
       let stats = null;
       let foundSportId = null;
 
-      if (player.sportId === 0) {
+      if (activeDate) {
+        // DAILY: fetch stats for a specific date using gameLog
+        try {
+          const url = `${MLB_API}/people/${player.id}/stats?stats=gameLog&season=${activeDate.slice(0,4)}&group=${group}&startDate=${activeDate}&endDate=${activeDate}`;
+          const res = await fetch(url);
+          const data = await res.json();
+          if (data.stats && data.stats.length > 0) {
+            for (const statBlock of data.stats) {
+              if (statBlock.splits && statBlock.splits.length > 0) {
+                // Sum all game splits for this date (doubleheaders)
+                const daySplits = statBlock.splits.filter(s => s.date === activeDate);
+                if (daySplits.length > 0) {
+                  stats = daySplits.length === 1
+                    ? daySplits[0].stat
+                    : combinedStats(daySplits.map(s => s.stat), player.type);
+                  foundSportId = player.sportId;
+                  console.log(`[Daily] ${activeDate} stats for ${player.id}:`, JSON.stringify(stats));
+                }
+              }
+            }
+          }
+        } catch(e) {
+          console.warn('[Daily] fetch error:', e);
+        }
+      } else if (player.sportId === 0) {
         // COMBINED: fetch all levels and sum/average stats
         const allStats = [];
         await Promise.all(allSportIds.map(async sportId => {
@@ -1139,7 +1233,7 @@ function renderTable(type) {
     }
 
     if (cached.status === 'error' || !cached.stats) {
-      const msg = !cached.stats ? `No ${p.season} stats at this level — try changing season or level` : 'Failed to load — check connection';
+      const msg = !cached.stats ? (activeDate ? `No game on ${formatDateDisplay(activeDate)}` : `No ${p.season} stats at this level — try changing season or level`) : 'Failed to load — check connection';
       const cols = type === 'pitchers'
         ? `<td class="cell-error" colspan="14" style="text-align:left;padding-left:12px;">${msg}</td><td><button class="btn-ghost" style="font-size:11px;padding:4px 10px;" onclick="retryPlayer(${p.id})">↻ Retry</button></td>`
         : `<td class="cell-error" colspan="15" style="text-align:left;padding-left:12px;">${msg}</td><td><button class="btn-ghost" style="font-size:11px;padding:4px 10px;" onclick="retryPlayer(${p.id})">↻ Retry</button></td>`;
@@ -1283,6 +1377,44 @@ function showNotif(msg) {
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
+// ─── DAILY STATS ──────────────────────────────────────────────────────────────
+function setToday() {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  const dateStr = `${yyyy}-${mm}-${dd}`;
+  document.getElementById('datePicker').value = dateStr;
+  onDateChange(dateStr);
+}
+
+function onDateChange(dateStr) {
+  if (!dateStr) { clearDate(); return; }
+  activeDate = dateStr;
+  statsCache = {};
+  const badge = document.getElementById('dateActiveBadge');
+  const clearBtn = document.getElementById('clearDateBtn');
+  badge.textContent = `Showing: ${formatDateDisplay(dateStr)}`;
+  badge.style.display = 'inline-block';
+  clearBtn.style.display = 'inline-block';
+  Promise.all(roster.map(p => fetchAndRenderStats(p)));
+}
+
+function clearDate() {
+  activeDate = null;
+  statsCache = {};
+  document.getElementById('datePicker').value = '';
+  document.getElementById('dateActiveBadge').style.display = 'none';
+  document.getElementById('clearDateBtn').style.display = 'none';
+  Promise.all(roster.map(p => fetchAndRenderStats(p)));
+}
+
+function formatDateDisplay(dateStr) {
+  const [y, m, d] = dateStr.split('-');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${months[parseInt(m)-1]} ${parseInt(d)}, ${y}`;
+}
+
 function changeAllSeasons(season) {
   season = parseInt(season);
   roster.forEach(p => { p.season = season; });
